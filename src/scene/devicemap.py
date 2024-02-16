@@ -1,21 +1,22 @@
 from i24_configparse import parse_cfg
 from i24_logger.log_writer import catch_critical,logger
 import configparser
+import numpy as np
 import torch
 import re
 import os
     
 
 
-def get_DeviceMap(name,camera_list = None, camera_priorities = []):
+def get_DeviceMap(name,hg,camera_list = None, camera_priorities = []):
     """
     getter function that takes a string (class name) input and returns an instance
     of the named class
     """
     if name == "DeviceMap":
-        dmap = DeviceMap(camera_list = camera_list,camera_priorities=camera_priorities)
+        dmap = DeviceMap(hg,camera_list = camera_list,camera_priorities=camera_priorities)
     elif name == "HeuristicDeviceMap":
-        dmap = HeuristicDeviceMap(camera_list = camera_list, camera_priorities = camera_priorities)
+        dmap = HeuristicDeviceMap(hg,camera_list = camera_list, camera_priorities = camera_priorities)
     else:
         raise NotImplementedError("No DeviceMap child class named {}".format(name))
     
@@ -39,13 +40,13 @@ class DeviceMap():
     """
     
     @catch_critical()
-    def __init__(self,camera_list = None, camera_priorities = []):
+    def __init__(self,hg,camera_list = None, camera_priorities = []):
         
         # load config
         self = parse_cfg("TRACK_CONFIG_SECTION",obj = self)
 
         # load self.cam_extents
-        self._parse_cameras(self.camera_extents_file, camera_list = camera_list)
+        self._parse_cameras(hg, camera_list = camera_list)
         
         # convert camera extents to tensor
         cam_names = []
@@ -64,7 +65,7 @@ class DeviceMap():
                 self.cam_names.append(n_trunc)
         
         self.cam_extents_dict = self.cam_extents.copy()
-        self.cam_extents = torch.tensor(extents)
+        self.cam_extents = torch.stack(extents)
         
         expansion_map = []
         for name in self.cam_names_extended:
@@ -104,38 +105,74 @@ class DeviceMap():
         
                     
                 
+    # @catch_critical()
+    # def _parse_cameras(self,extents_file, camera_list = None):
+    #     """
+    #     This function is likely to change in future versions. For now, config file is expected to 
+    #     express camera range as minx,miny,maxx,maxy e.g. p1c1=100,-10,400,120
+    #     :param extents_file - (str) name of file with camera extents
+    #     :return dict with same information in list form p1c1:[100,-10,400,120]
+    #     """
+    #     extents_file = os.path.join(os.environ["USER_CONFIG_DIRECTORY"],extents_file)
+    #     cp = configparser.ConfigParser()
+    #     cp.read(extents_file)
+    #     extents = dict(cp["DEFAULT"])
+       
+    #     removals = []
+    #     for key in extents.keys():
+    #         try:
+    #             parsed_val = [int(item) for item in extents[key].split(",")]
+    #             extents[key] = parsed_val
+
+    #         except ValueError: # adding a $ to the end of each camera to be excluded will trigger this error and thus the camera will not be included
+    #             removals.append(key)
+    #             continue
+            
+    #         if camera_list is not None:
+    #             base_key = key.split("_")[0]
+    #             if base_key.upper() not in camera_list:
+    #                 removals.append(key)
+            
+    #     for rem in removals:
+    #         extents.pop(rem)
+    
+    #     self.cam_extents = extents
+        
     @catch_critical()
-    def _parse_cameras(self,extents_file, camera_list = None):
+    def _parse_cameras(self,hg, camera_list = None):
         """
         This function is likely to change in future versions. For now, config file is expected to 
         express camera range as minx,miny,maxx,maxy e.g. p1c1=100,-10,400,120
         :param extents_file - (str) name of file with camera extents
         :return dict with same information in list form p1c1:[100,-10,400,120]
         """
-        extents_file = os.path.join(os.environ["USER_CONFIG_DIRECTORY"],extents_file)
-        cp = configparser.ConfigParser()
-        cp.read(extents_file)
-        extents = dict(cp["DEFAULT"])
-       
-        removals = []
-        for key in extents.keys():
-            try:
-                parsed_val = [int(item) for item in extents[key].split(",")]
-                extents[key] = parsed_val
-
-            except ValueError: # adding a $ to the end of each camera to be excluded will trigger this error and thus the camera will not be included
-                removals.append(key)
-                continue
-            
-            if camera_list is not None:
-                base_key = key.split("_")[0]
-                if base_key.upper() not in camera_list:
-                    removals.append(key)
-            
-        for rem in removals:
-            extents.pop(rem)
-    
-        self.cam_extents = extents
+        hg.downsample = 1
+        
+        self.cam_extents  = {}
+        
+        for cam in camera_list:
+            for direction in ["EB","WB"]:
+                corr = cam + "_" + direction
+                
+                if corr in hg.correspondence.keys():
+                    
+                    # get extents
+                    pts = hg.correspondence[corr]["FOV"]
+                    pts = torch.from_numpy(np.array(pts))
+                    pts = pts.unsqueeze(1).expand(pts.shape[0],8,2)
+                    pts_road = hg.im_to_state(pts,name = [corr for _ in pts],heights = torch.zeros(pts.shape[0]))
+                    
+                    
+                    
+                    minx = torch.min(pts_road[:,0])
+                    maxx = torch.max(pts_road[:,0])
+                    miny = torch.min(pts_road[:,1])
+                    maxy = torch.max(pts_road[:,1])
+                    
+                    self.cam_extents[corr] = torch.tensor([minx,maxx,miny,maxy]) 
+        
+        hg.downsample = 2
+        
      
     @catch_critical()
     def _priority_assign_devices(self,camera_list,priorities):
@@ -153,7 +190,7 @@ class DeviceMap():
         ravel = {}
         for d_idx in range(len(devices)):
             for cam in devices[d_idx]:
-                ravel[cam] = d_idx
+                ravel[cam.upper()] = d_idx
         self.cam_devices = ravel
         
         
@@ -173,6 +210,7 @@ class DeviceMap():
         new_mapping = {}
         for key in mapping.keys():
             parsed_val = int(mapping[key])
+            key = key.upper()
             new_mapping[key] = parsed_val
             #wb_key = key + "_wb"
             #new_mapping[wb_key] = parsed_val
@@ -261,28 +299,28 @@ class DeviceMap():
 class HeuristicDeviceMap(DeviceMap):
     
     @catch_critical()
-    def __init__(self,camera_list = None,camera_priorities = []):
-        super(HeuristicDeviceMap, self).__init__(camera_list = camera_list,camera_priorities=camera_priorities)
+    def __init__(self,hg,camera_list = None,camera_priorities = []):
+        super(HeuristicDeviceMap, self).__init__(hg,camera_list = camera_list,camera_priorities=camera_priorities)
         
         # TODO move this to the config
         # add camera priority
-        priority_dict = {"c1":1,
-                    "c2":100,
-                    "c3":1000,
-                    "c4":1000,
-                    "c5":100,
-                    "c6":1,
+        priority_dict = {"C1":1,
+                    "C2":100,
+                    "C3":1000,
+                    "C4":1000,
+                    "C5":100,
+                    "C6":1,
                     
-                    "c01":1,
-                    "c02":100,
-                    "c03":1000,
-                    "c04":1000,
-                    "c05":100,
-                    "c06":1}
+                    "C01":1,
+                    "C02":100,
+                    "C03":1000,
+                    "C04":1000,
+                    "C05":100,
+                    "C06":1}
         try:
-            self.priority = torch.tensor([priority_dict[re.search("c\d",cam).group(0)] for cam in self.cam_names_extended])
+            self.priority = torch.tensor([priority_dict[re.search("C\d",cam).group(0)] for cam in self.cam_names_extended])
         except KeyError:
-            self.priority = torch.tensor([priority_dict[re.search("c\d\d",cam).group(0)] for cam in self.cam_names_extended])
+            self.priority = torch.tensor([priority_dict[re.search("C\d\d",cam).group(0)] for cam in self.cam_names_extended])
             
     @catch_critical()
     def map_cameras(self,tstate,ts):
@@ -387,11 +425,11 @@ class HeuristicDeviceMap(DeviceMap):
         try:        
             detection_extents = [torch.tensor(self.cam_extents_dict[cam_name]) for cam_name in det_cams]
         except:
-            det_cams = [det_cams[i] + ("_eb" if detections[i,5] == 1 else "_wb") for i in range(len(det_cams))]
+            det_cams = [det_cams[i] + ("_EB" if detections[i,5] == 1 else "_WB") for i in range(len(det_cams))]
             lis = []
             for cam_name in det_cams:
                 try:
-                   lis.append(torch.tensor(self.cam_extents_dict[cam_name]))
+                   lis.append(self.cam_extents_dict[cam_name])
                 except KeyError:
                     lis.append(torch.tensor([0,0,0,0]))
             detection_extents = lis

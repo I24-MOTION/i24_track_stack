@@ -11,39 +11,31 @@ import signal
 import warnings
 
 #os.environ["USER_CONFIG_DIRECTORY"] = "/home/derek/Documents/i24/i24_track/config/lambda_cerulean_eval2"
-if socket.gethostname() == 'quadro-cerulean':    
-    os.environ["USER_CONFIG_DIRECTORY"] = "/home/derek/Documents/i24/i24_track/config/lambda_cerulean_batch_7"
-
+if socket.gethostname() == 'lambda-cerulean':    
+    os.environ["USER_CONFIG_DIRECTORY"] = "/home/worklab/Documents/i24_common_sim/config/lambda_cerulean_batch_6"
 from i24_logger.log_writer         import logger,catch_critical,log_warnings
-
 mp.set_sharing_strategy('file_system')
 
 
-
+# relative imports
 from src.util.bbox                 import state_nms,estimate_ts_offsets
 from src.util.misc                 import plot_scene,colors,Timer
-from i24_configparse               import parse_cfg,parse_delimited
 from src.track.tracker             import get_Tracker, get_Associator
 from src.track.trackstate          import TrackierState as TrackState
 from src.detect.pipeline           import get_Pipeline
 from src.scene.devicemap           import get_DeviceMap
-#from src.scene.homography          import HomographyWrapper,Homography
 from src.detect.devicebank         import DeviceBank
-#from src.load.gpu_load_multi_presynced       import MCLoader, ManagerClock
 from src.db_write                  import WriteWrapperConf as WriteWrapper
 
-from src.scene.curvilinear_homography import Curvilinear_Homography 
+from src.load.gpu_load_multi_presynced       import MCLoader
 
-#from src.log_init                  import logger
-#from i24_logger.log_writer         import logger,catch_critical,log_warnings
+# custom package imports
+from i24_configparse               import parse_cfg,parse_delimited
+from i24_rcs                       import I24_RCS
 
 
-
-#from src.load.cpu_load             import DummyNoiseLoader #,MCLoader
-#from src.load.gpu_load             import MCLoader
-
-def __process_entry__(cams=[], vidPath='', ingID='', trackID='', endTime=0,startTime=0):
-    p = TrackingProcess(cams = cams,vidPath = vidPath, ingID = ingID, trackID = trackID,endTime=endTime,startTime=startTime)
+def __process_entry__(cams=[], hgPath = '', vidPath='', ingID='', trackID='', endTime=0,startTime=0):
+    p = TrackingProcess(cams = cams,hgPath = hgPath, vidPath = vidPath, ingID = ingID, trackID = trackID,endTime=endTime,startTime=startTime)
     signal.signal(signal.SIGINT, p.sigint_handler)
     signal.signal(signal.SIGUSR1, p.sigusr_handler)
     p.main()
@@ -53,9 +45,16 @@ def force_cudnn_initialization():
     dev = torch.device('cuda:0')
     torch.nn.functional.conv2d(torch.zeros(s, s, s, s, device=dev), torch.zeros(s, s, s, s, device=dev))
 
+
+
+
+
+
+
+
 class TrackingProcess:
     
-    def __init__(self,cams=[], vidPath='', ingID='', trackID='', endTime=0, startTime=0):
+    def __init__(self,cams=[], vidPath='', hgPath = '', ingID='', trackID='', endTime=0, startTime=0):
         """
         Set up persistent process variables here
         """
@@ -99,7 +98,8 @@ class TrackingProcess:
         hostname = socket.gethostname()
         self.hostname = hostname
         
-        if socket.gethostname() == 'quadro-cerulean':    
+        # this is a spoof to pretend to be a particular video node on my local desktop machine
+        if socket.gethostname() == 'lambda-cerulean':    
             hostname = "videonode2"
         
         # default camera list
@@ -136,10 +136,19 @@ class TrackingProcess:
             self.collection_overwrite = trackID
         
         
-        
-        
+        self.hg = I24_RCS(hgPath,downsample = 2)
+
+        # fill missing
+        for p in range(1,41):
+            if "P{}C03_WB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C03_EB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
+                self.hg.correspondence["P{}C03_WB".format(str(p).zfill(2))] = self.hg.correspondence["P{}C03_EB".format(str(p).zfill(2))]
+                print("Fill")
+            if "P{}C04_EB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C04_WB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
+                self.hg.correspondence["P{}C04_EB".format(str(p).zfill(2))] = self.hg.correspondence["P{}C04_WB".format(str(p).zfill(2))]
+                print("Fill")
+                
         # intialize DeviceMap
-        self.dmap = get_DeviceMap(params.device_map, camera_list = include_camera_list, camera_priorities = priorities)
+        self.dmap = get_DeviceMap(params.device_map, self.hg, camera_list = include_camera_list, camera_priorities = priorities)
         dmap_devices = list(set(self.dmap.cam_devices))
         dmap_devices.sort()
         params.cuda_devices = dmap_devices
@@ -159,8 +168,7 @@ class TrackingProcess:
         print("Collection Name: {}    Track ID:  {}   Video Path: {}   Checkpoint Path: {}".format(self.collection_overwrite,trackID,in_dir, self.checkpoint_dir))
         
         # get frame handlers
-        from src.load.gpu_load_multi_presynced       import MCLoader
-        self.loader = MCLoader(in_dir,self.dmap.cam_devices_dict,self.dmap.cam_names, ctx,start_time = target_time,Hz = params.nominal_framerate)
+        self.loader = MCLoader(in_dir,self.dmap.cam_devices_dict,self.dmap.cam_names, ctx,start_time = target_time,Hz = params.nominal_framerate,hgPath = hgPath)
         self.max_ts = self.loader.start_time
         self.start_ts = self.loader.true_start_time
         
@@ -168,9 +176,7 @@ class TrackingProcess:
         print("In main loop, max_ts = {} and start_ts = {}".format(self.max_ts,self.start_ts))
         
         
-        # initialize Homography object
-        self.hg = Curvilinear_Homography(params.homography_file,downsample = 2, fill_gaps = False) 
-        self.hg.polarity = 1
+
         
         if params.track:
             # initialize pipelines
@@ -555,8 +561,10 @@ class TrackingProcess:
      
 if __name__ == "__main__":
     trackID = ''
-    vidPath = ''
-        
+    vidPath = '/home/worklab/Data/batch_6'
+    hgPath  = "/home/worklab/Documents/temp_hg_files_for_dev/hg_batch6_test.cpkl"
+
+
     if socket.gethostname() == "auxprocess1" or socket.gethostname() == "devvideo1":
         #trackID = "633c5e8bfc34583315cd6bed"
         #vidPath = "/data/video/current/{}".format(trackID)
@@ -565,8 +573,7 @@ if __name__ == "__main__":
         vidPath = "/data/video/current/{}".format(trackID)
         trackID = "650210b0069d4dc9ee0877ce" # temp to not overwrite data
         
-        
-    __process_entry__(vidPath = vidPath,trackID=trackID,cams=["P11C06","P08C06","P09C06","P10C06","P13C06","P12C06","P11C03","P08C04","P09C03","P10C03","P13C03","P12C03"])
+    __process_entry__(hgPath = hgPath, vidPath = vidPath,trackID=trackID,cams=["P11C06","P08C06","P09C06","P10C06","P13C06","P12C06","P11C03","P08C04","P09C03","P10C03","P13C03","P12C03"])
     
     # if True:
     #     import cv2

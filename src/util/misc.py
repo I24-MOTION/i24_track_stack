@@ -139,7 +139,7 @@ def plot_scene(tstate, frames, ts, gpu_cam_names, hg, colors, mask=None, extents
                 both_boxes = []
                 both_ids = []
                 both_classes = []
-                for direction in ["_eb", "_wb"]:
+                for direction in ["_EB", "_WB"]:
                     try:
                         xmin, xmax, ymin,ymax = extents[cam_names[f_idx]+ direction]
                     except:
@@ -230,7 +230,7 @@ def plot_scene(tstate, frames, ts, gpu_cam_names, hg, colors, mask=None, extents
                 fr = hg.plot_state_boxes(
                     fr.copy(), detections_selected, name=cam_names[f_idx], labels=None,thickness = 1, color = (255,0,0))
             except:
-                for direction in ["_eb", "_wb"]:
+                for direction in ["_EB", "_WB"]:
                     try:
                         xmin, xmax, ymin,ymax = extents[cam_names[f_idx]+ direction]
                     except:
@@ -284,12 +284,13 @@ def plot_scene(tstate, frames, ts, gpu_cam_names, hg, colors, mask=None, extents
     new_size = (int(cat_im.shape[1]//trunc), int(cat_im.shape[0]//trunc))
     cat_im = cv2.resize(cat_im, new_size) / 255.0
 
-    try:
-        cv2.imwrite("/home/derek/Desktop/temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
-    except:
-        cv2.imwrite("./temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
-    # plot
     if False:
+        try:
+            cv2.imwrite("/home/derek/Desktop/temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
+        except:
+            cv2.imwrite("./temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
+    # plot
+    if True:
         cv2.imshow("frame", cat_im)
         # cv2.setWindowTitle("frame",str(self.frame_num))
         key = cv2.waitKey(1)

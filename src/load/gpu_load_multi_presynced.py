@@ -2,7 +2,6 @@ import torch
 import PyNvCodec as nvc
 import PytorchNvCodec as pnvc
 
-
 import configparser
 import torch
 import socket
@@ -19,6 +18,8 @@ from PIL import Image
 from torchvision.transforms import functional as F
 
 from i24_logger.log_writer import logger,catch_critical
+from i24_rcs import I24_RCS
+
 
 class ManagerClock:
     def __init__(self,start_ts,desired_processing_speed,framerate):
@@ -67,7 +68,7 @@ class MCLoader():
     """
     
     @catch_critical()        
-    def __init__(self,directory,mapping,cam_names,ctx,resize = (1920,1080), start_time = None, Hz = 29.9):
+    def __init__(self,directory,mapping,cam_names,ctx,resize = (1920,1080), start_time = None, Hz = 29.9,hgPath = None):
         
         
     
@@ -97,14 +98,14 @@ class MCLoader():
         self.device_loaders = [[] for i in range(torch.cuda.device_count())]
         self.device_loader_cam_names =  [[] for i in range(torch.cuda.device_count())]
         for key in cam_names:
-            dev_id = self.cam_devices[key.lower().split("_")[0]]
+            dev_id = self.cam_devices[key.upper().split("_")[0]]
             
             try:
                 sequence = cam_sequences[key.split("_")[0]]
             except:
                 sequence = cam_sequences[key.upper().split("_")[0]]
             
-            loader = GPUBackendFrameGetter(sequence,dev_id,ctx,resize = resize,start_time = self.start_time, Hz = Hz)
+            loader = GPUBackendFrameGetter(sequence,dev_id,ctx,resize = resize,start_time = self.start_time, Hz = Hz,hgPath = hgPath)
             
             self.device_loaders[dev_id].append(loader)
             self.device_loader_cam_names[dev_id].append(sequence)
@@ -186,7 +187,7 @@ class MCLoader():
     def get_start_time(self,cam_names,cam_sequences):
         all_ts = []
         for key in cam_names:
-            gpuID = self.cam_devices[key.lower().split("_")[0]]
+            gpuID = self.cam_devices[key.upper().split("_")[0]]
             
             try:
                 directory = cam_sequences[key.split("_")[0]]
@@ -235,7 +236,7 @@ class MCLoader():
             
     
 class GPUBackendFrameGetter:
-    def __init__(self,directory,device,ctx,buffer_size = 5,resize = (1920,1080),start_time = None, Hz = 29.9):
+    def __init__(self,directory,device,ctx,buffer_size = 5,resize = (1920,1080),start_time = None, Hz = 29.9,hgPath = None):
         
         # create shared queue
         self.queue = ctx.Queue()
@@ -244,7 +245,7 @@ class GPUBackendFrameGetter:
         
         self.directory = directory
         # instead of a single file, pass a directory, and a start time
-        self.worker = ctx.Process(target=load_queue_continuous_vpf, args=(self.queue,directory,device,buffer_size,resize,start_time,Hz),daemon = True)
+        self.worker = ctx.Process(target=load_queue_continuous_vpf, args=(self.queue,directory,device,buffer_size,resize,start_time,Hz,hgPath),daemon = True)
         self.worker.start()   
         
         self.directory = directory        
@@ -294,7 +295,7 @@ class GPUBackendFrameGetter:
         #     self.worker.join()
         #     return None
         
-def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,Hz,tolerance = 1/60.0):
+def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,Hz,hgPath,tolerance = 1/60.0):
     
     logger.set_name("Hardware Decode Handler {}".format(device))
     
@@ -304,15 +305,46 @@ def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,H
     
     camera = re.search("P\d\dC\d\d",directory).group(0)
     # load mask file
-    if socket.gethostname() == "quadro-cerulean":
-        mask_path = "/home/derek/Documents/i24/i24_track/data/mask/{}_mask_1080.png".format(camera)
-    else:
-        mask_path = "/remote/i24_code/tracking/data/mask/{}_mask_1080.png".format(camera)
-    mask_im = np.asarray(Image.open(mask_path))
-    mask_im = torch.from_numpy(mask_im.copy()) 
-    mask_im = torch.clamp(mask_im.to(gpuID).unsqueeze(0).expand(3,mask_im.shape[0],mask_im.shape[1]),min = 0, max = 1)
-    logger.info("{} mask im shape: {}. Max value {}".format(mask_path,mask_im.shape,torch.max(mask_im)))
     
+    if False:
+        if socket.gethostname() == "quadro-cerulean":
+            mask_path = "/home/derek/Documents/i24/i24_track/data/mask/{}_mask_1080.png".format(camera)
+        else:
+            mask_path = "/remote/i24_code/tracking/data/mask/{}_mask_1080.png".format(camera)
+        mask_im = np.asarray(Image.open(mask_path))
+        mask_im = torch.from_numpy(mask_im.copy()) 
+        mask_im = torch.clamp(mask_im.to(gpuID).unsqueeze(0).expand(3,mask_im.shape[0],mask_im.shape[1]),min = 0, max = 1)
+        logger.info("{} mask im shape: {}. Max value {}".format(mask_path,mask_im.shape,torch.max(mask_im)))
+    
+    
+    # generate mask from points instead
+    assert (hgPath is not None), "ASSERT@!!!"
+    if hgPath is not None:
+        hg = I24_RCS(hgPath,downsample = 1)
+        try:
+            mask= hg.correspondence[camera + "_WB"]["mask"]
+        except:
+            mask= hg.correspondence[camera + "_EB"]["mask"]
+
+        
+        if len(mask) > 0:
+        
+            mask_im = np.zeros([2160,3840])
+            
+            
+            mask_poly = (np.array([pt for pt in mask]).reshape(
+                1, -1, 2)).astype(np.int32)
+            
+            mask_im= cv2.fillPoly(
+                mask_im, mask_poly,  255, lineType=cv2.LINE_AA)
+        else:
+            mask_im = np.ones([2160,3840])
+            
+        #mask_im = cv2.resize(mask_im,(1920,1080))
+        mask_im = torch.from_numpy(mask_im.copy()) 
+        mask_im = torch.clamp(mask_im.to(gpuID).unsqueeze(0).expand(3,mask_im.shape[0],mask_im.shape[1]),min = 0, max = 1)
+          
+        
     # GET FIRST FILE
     # sort directory files (by timestamp)
     #files = os.listdir(directory)

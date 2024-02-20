@@ -137,7 +137,9 @@ class TrackingProcess:
         
         
         self.hg = I24_RCS(hgPath,downsample = 2)
-
+        self.hg.hg_start_time = 0
+        self.hg.sec = 5
+        
         # fill missing
         for p in range(1,41):
             if "P{}C03_WB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C03_EB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
@@ -327,6 +329,10 @@ class TrackingProcess:
             self.logger.debug("Initialization Complete. Starting tracking at {}s".format(start_time))
         
             # readout headers
+            
+            
+            time_dict = {}
+            
             try:
                 while self.max_ts <self. end_time:
                         
@@ -368,6 +374,9 @@ class TrackingProcess:
                                 break #out of input
                             ts_trunc = [item - self.start_ts for item in timestamps]
                             
+                            for t in range(len(ts_trunc)):
+                                time_dict[self.dmap.cam_names[t]] = ts_trunc[t]
+                                
                             # for obj in initializations:
                             #     obj["timestamp"] -= start_ts
                             initializations = None
@@ -396,10 +405,19 @@ class TrackingProcess:
                                 obj_ids, priors, device_idxs, camera_idxs, run_device_ids=self.params.cuda_devices)
                         
                         
+                            #print("Prior Stack Length: {}".format(len(prior_stack)))
+                            if False:#  and frames_processed == 173:
+                                # test on a single on-process pipeline
+                                self.pipelines[pipeline_idx].set_device(1)
+                                self.pipelines[pipeline_idx].set_cam_names(self.dmap.gpu_cam_names[1])
+                                test = self.pipelines[pipeline_idx](frames[1],prior_stack[1],time_dict)
+
+                    
+                        
                             # get detections
                             self.tm.split("Detect {}".format(pipeline_idx),SYNC = True)
                             detections, confs, classes, detection_cam_names, associations = self.dbank(
-                                prior_stack, frames, pipeline_idx=pipeline_idx)
+                                prior_stack, frames, pipeline_idx=pipeline_idx,times = time_dict)
                             
                             detections = detections.float()
                             confs = confs.float()

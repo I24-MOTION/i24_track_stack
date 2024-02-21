@@ -143,8 +143,7 @@ class TrackingProcess:
         
         
         self.hg = I24_RCS(hg_file,downsample = 2)
-        self.hg.hg_start_time = 0
-        self.hg.sec = 5
+        
         
         # fill missing
         for p in range(1,41):
@@ -179,6 +178,10 @@ class TrackingProcess:
         self.loader = MCLoader(in_dir,self.dmap.cam_devices_dict,self.dmap.cam_names, ctx,start_time = target_time,Hz = params.nominal_framerate,hg_file = hg_file)
         self.max_ts = self.loader.start_time
         self.start_ts = self.loader.true_start_time
+        
+        
+        logger.info("HG start time: {}, Tracking start time: {}  ---- difference is {:.2}sec.".format(self.hg.hg_start_time,self.start_ts,self.hg.hg_start_time-self.start_ts)
+        self.hg.hg_start_time -= self.start_ts # this ensures that the correct bin will be indexed (e.g. if hg start time is 12 and video start ts is 13, a ts_trunc of 0 (e.g. video ts = 13) should index the hg time 1 second after the start so hg_start_ts needs to be -1
         
         self.logger.debug("Initialized {} loader processes.".format(len(self.loader.device_loaders)))
         print("In main loop, max_ts = {} and start_ts = {}".format(self.max_ts,self.start_ts))
@@ -340,7 +343,7 @@ class TrackingProcess:
             time_dict = {}
             
             try:
-                while self.max_ts <self. end_time:
+                while self.max_ts <self.end_time:
                         
         
                     

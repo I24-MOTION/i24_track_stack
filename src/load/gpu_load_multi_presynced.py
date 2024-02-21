@@ -341,9 +341,13 @@ def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,H
             mask_im = np.ones([2160,3840])
             
         #mask_im = cv2.resize(mask_im,(1920,1080))
+        mask_im_ds = cv2.resize(mask_im,(1920,1080))
+
         mask_im = torch.from_numpy(mask_im.copy()) 
         mask_im = torch.clamp(mask_im.to(gpuID).unsqueeze(0).expand(3,mask_im.shape[0],mask_im.shape[1]),min = 0, max = 1)
-          
+        
+        mask_im_ds = torch.from_numpy(mask_im_ds.copy()) 
+        mask_im_ds = torch.clamp(mask_im_ds.to(gpuID).unsqueeze(0).expand(3,mask_im_ds.shape[0],mask_im_ds.shape[1]),min = 0, max = 1)
         
     # GET FIRST FILE
     # sort directory files (by timestamp)
@@ -436,8 +440,12 @@ def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,H
                 surface_tensor.resize_(3, target_h,target_w)
                 
                 # apply mask
-                surface_tensor = surface_tensor* mask_im.expand(surface_tensor.shape)
-                
+                try:
+                    surface_tensor = surface_tensor* mask_im_ds.expand(surface_tensor.shape)
+                except:
+                    surface_tensor = surface_tensor* mask_im.expand(surface_tensor.shape)
+                    
+                    
                 try:
                     surface_tensor = torch.nn.functional.interpolate(surface_tensor.unsqueeze(0),resize).squeeze(0)
                 except:

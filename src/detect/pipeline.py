@@ -71,7 +71,7 @@ class DetectPipeline():
         return detection_result
     
     @catch_critical()
-    def __call__(self,frames,priors):
+    def __call__(self,frames,priors,times = None):
         
         [ids,priors,frame_idx,cam_names] = priors
         
@@ -84,7 +84,7 @@ class DetectPipeline():
         prepped_frames = self.prep_frames(frames,priors = priors)
         detection_result = self.detect(prepped_frames)
         #print("Device {} detection result length: ".format(self.device),len(detection_result))
-        detections,confs,classes,detection_cam_names  = self.post_detect(detection_result,priors = priors)
+        detections,confs,classes,detection_cam_names  = self.post_detect(detection_result,priors = priors,times = times)
         
         # Associate
         #matchings = self.associate(ids,priors,detections,self.hg)
@@ -265,7 +265,7 @@ class RetinanetFullFramePipelineMulti(DetectPipeline):
             result = self.detector(frames_cat,MULTI_FRAME = True)
         return result
     
-    def post_detect(self,detection_result,priors = None):
+    def post_detect(self,detection_result,priors = None,times = None):
         self.tm.split("post")
         confs,classes,detections,detection_idxs,embeddings = detection_result # detection_idx = which frame from idx each detection is from
         #confs,classes = torch.max(classes, dim = 2) 
@@ -297,8 +297,12 @@ class RetinanetFullFramePipelineMulti(DetectPipeline):
         if len(confs) > 0:
             detection_cam_names = [self.cam_names[i] for i in detection_idxs]
             
+            #get times for each detection based on cameras
+            det_times = torch.tensor([times[det] for det in detection_cam_names])
+            #logger.info("Detection Times: {}".format(det_times))
+            
             # Use the guess and refine method to get box heights
-            detections = self.hg.im_to_state(detections,name = detection_cam_names,classes = classes)
+            detections = self.hg.im_to_state(detections,name = detection_cam_names,classes = classes,times = det_times)
             #detections = self.hg.state_to_space(detections)
             # state space NMS
             mask           = state_nms(detections,confs,threshold = self.space_nms_iou)

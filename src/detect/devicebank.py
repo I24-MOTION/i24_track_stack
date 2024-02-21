@@ -72,7 +72,7 @@ class DeviceBank():
             
         
     @catch_critical()
-    def __call__(self,prior_stack,frames,pipeline_idx=0):
+    def __call__(self,prior_stack,frames,pipeline_idx=0,times = None):
         """
         :prior_stack - list of items (obj_ids,priors,cam_idx), one for each device
                       where obj_ids - tensor of size [n_objs_on_gpu]
@@ -80,6 +80,7 @@ class DeviceBank():
                             cam_idx - tensor of size [n_obs_on_gpu] with index into cameras on that GPU
         :param frames - list of tensors - [n_cameras_on_gpu,channels,im_height,im_width], one for each device
         :param pipeline_idx - int
+        :param times - None or dict of times keyed by camera name
         
         
         """
@@ -94,7 +95,7 @@ class DeviceBank():
         for i in range(len(prior_stack)):
             if i in self.send_queues.keys():
                 # prior stack i will always correspond to device 0
-                self.send_queues[i].put((prior_stack[i],frames[i],pipeline_idx))
+                self.send_queues[i].put((prior_stack[i],frames[i],pipeline_idx,times))
                 #print("Sent {} frames to device {}".format(frames[i].shape[0],i))
         # get results
         result = []
@@ -189,8 +190,8 @@ def handle_device(in_queue,out_queue,pipelines,device_id,this_dev_cam_names):
             break
             #TODO log device handler shutdown
         
-        (prior_data,frames,pipeline_idx) = inputs
+        (prior_data,frames,pipeline_idx,times) = inputs
         torch.cuda.empty_cache()
-        result = pipelines[pipeline_idx](frames,priors = prior_data)
+        result = pipelines[pipeline_idx](frames,priors = prior_data,times = times)
         out_queue.put(result)
         

@@ -68,7 +68,7 @@ class MCLoader():
     """
     
     @catch_critical()        
-    def __init__(self,directory,mapping,cam_names,ctx,resize = (1920,1080), start_time = None, Hz = 29.9,hgPath = None):
+    def __init__(self,directory,mapping,cam_names,ctx,resize = (1920,1080), start_time = None, Hz = 29.9,hg_file = None):
         
         
     
@@ -105,7 +105,7 @@ class MCLoader():
             except:
                 sequence = cam_sequences[key.upper().split("_")[0]]
             
-            loader = GPUBackendFrameGetter(sequence,dev_id,ctx,resize = resize,start_time = self.start_time, Hz = Hz,hgPath = hgPath)
+            loader = GPUBackendFrameGetter(sequence,dev_id,ctx,resize = resize,start_time = self.start_time, Hz = Hz,hgPath = hg_file)
             
             self.device_loaders[dev_id].append(loader)
             self.device_loader_cam_names[dev_id].append(sequence)

@@ -34,8 +34,8 @@ from i24_configparse               import parse_cfg,parse_delimited
 from i24_rcs                       import I24_RCS
 
 
-def __process_entry__(cams=[], hgPath = '', vidPath='', ingID='', trackID='', endTime=0,startTime=0):
-    p = TrackingProcess(cams = cams,hgPath = hgPath, vidPath = vidPath, ingID = ingID, trackID = trackID,endTime=endTime,startTime=startTime)
+def __process_entry__(cams=[], hg_file = '', vid_dir='', ing_id='', track_id='', end_time=0,start_time=0):
+    p = TrackingProcess(cams = cams,hg_file = hg_file, vid_dir = vid_dir, ing_id = ing_id, track_id = track_id,end_time=end_time,start_time=start_time)
     signal.signal(signal.SIGINT, p.sigint_handler)
     signal.signal(signal.SIGUSR1, p.sigusr_handler)
     p.main()
@@ -54,7 +54,13 @@ def force_cudnn_initialization():
 
 class TrackingProcess:
     
-    def __init__(self,cams=[], vidPath='', hgPath = '', ingID='', trackID='', endTime=0, startTime=0):
+    def __init__(self,cams=[],
+                 vid_dir='', 
+                 hg_file = '',
+                 ing_id='',
+                 track_id='', 
+                 end_time=0, 
+                 start_time=0 ):
         """
         Set up persistent process variables here
         """
@@ -78,7 +84,7 @@ class TrackingProcess:
         self.tm = Timer()
         self.tm.split("Init")
         
-        par = {"cams":cams,"vidPath":vidPath,"ingID":ingID,"trackID":trackID,"endTime":endTime,"startTime":startTime}
+        par = {"cams":cams,"vid_dir":vid_dir,"ing_id":ing_id,"track_id":track_id,"end_time":end_time,"start_time":start_time}
         self.logger.info("Got input params: {}".format(par),extra = par)
         run_config = "execute.config"       
         #mask = ["p2c1", "p2c3","p2c5","p3c1"] #["p46c01","p46c02", "p46c03", "p46c04", "p46c05","p46c06"]
@@ -89,7 +95,7 @@ class TrackingProcess:
                            cfg_name=run_config, SCHEMA=False)
         
         # default input directory
-        in_dir = params.input_directory #os.path.join(params.input_directory,trackID)
+        in_dir = params.input_directory #os.path.join(params.input_directory,track_id)
         self.checkpoint_dir = in_dir
         
         self.max_crops = params.max_crops
@@ -127,16 +133,16 @@ class TrackingProcess:
         priorities = [ret[key].priority for key in include_camera_list]
         
         # get input video directory. If  not specified in arg1, get it from execute.config
-        if len(vidPath) > 0:
-            in_dir = vidPath# os.path.join(vidPath,trackID)
+        if len(vid_dir) > 0:
+            in_dir = vid_dir# os.path.join(vid_dir,track_id)
         self.checkpoint_dir = in_dir
 
         
-        if len(trackID) > 0:
-            self.collection_overwrite = trackID
+        if len(track_id) > 0:
+            self.collection_overwrite = track_id
         
         
-        self.hg = I24_RCS(hgPath,downsample = 2)
+        self.hg = I24_RCS(hg_file,downsample = 2)
         self.hg.hg_start_time = 0
         self.hg.sec = 5
         
@@ -164,13 +170,13 @@ class TrackingProcess:
         # load checkpoint
         target_time,self.tstate,self.collection_overwrite = self.load_checkpoint(target_time,self.tstate,self.collection_overwrite)
         
-        if (target_time is None and startTime > 0) or (target_time is not None and target_time < startTime):
-            target_time = startTime
+        if (target_time is None and start_time > 0) or (target_time is not None and target_time < start_time):
+            target_time = start_time
             
-        print("Collection Name: {}    Track ID:  {}   Video Path: {}   Checkpoint Path: {}".format(self.collection_overwrite,trackID,in_dir, self.checkpoint_dir))
+        print("Collection Name: {}    Track ID:  {}   Video Path: {}   Checkpoint Path: {}".format(self.collection_overwrite,track_id,in_dir, self.checkpoint_dir))
         
         # get frame handlers
-        self.loader = MCLoader(in_dir,self.dmap.cam_devices_dict,self.dmap.cam_names, ctx,start_time = target_time,Hz = params.nominal_framerate,hgPath = hgPath)
+        self.loader = MCLoader(in_dir,self.dmap.cam_devices_dict,self.dmap.cam_names, ctx,start_time = target_time,Hz = params.nominal_framerate,hg_file = hg_file)
         self.max_ts = self.loader.start_time
         self.start_ts = self.loader.true_start_time
         
@@ -215,7 +221,7 @@ class TrackingProcess:
         # cache params
         self.params = params
         
-        self.end_time = (np.inf if endTime <= 0 else endTime)
+        self.end_time = (np.inf if end_time <= 0 else end_time)
         
 
     # @log_warnings()
@@ -578,20 +584,20 @@ class TrackingProcess:
             
      
 if __name__ == "__main__":
-    trackID = ''
-    vidPath = '/home/worklab/Data/batch_6'
-    hgPath  = "/home/worklab/Documents/temp_hg_files_for_dev/hg_batch6_test.cpkl"
+    track_id = ''
+    vid_dir = '/home/worklab/Data/batch_6'
+    hg_file  = "/home/worklab/Documents/temp_hg_files_for_dev/hg_batch6_test.cpkl"
 
 
     if socket.gethostname() == "auxprocess1" or socket.gethostname() == "devvideo1":
-        #trackID = "633c5e8bfc34583315cd6bed"
-        #vidPath = "/data/video/current/{}".format(trackID)
+        #track_id = "633c5e8bfc34583315cd6bed"
+        #vid_dir = "/data/video/current/{}".format(track_id)
        
-        trackID = "637443758b5b68fc4fd40c76"
-        vidPath = "/data/video/current/{}".format(trackID)
-        trackID = "650210b0069d4dc9ee0877ce" # temp to not overwrite data
+        track_id = "637443758b5b68fc4fd40c76"
+        vid_dir = "/data/video/current/{}".format(track_id)
+        track_id = "650210b0069d4dc9ee0877ce" # temp to not overwrite data
         
-    __process_entry__(hgPath = hgPath, vidPath = vidPath,trackID=trackID,cams=["P11C06","P08C06","P09C06","P10C06","P13C06","P12C06","P11C03","P08C04","P09C03","P10C03","P13C03","P12C03"])
+    __process_entry__(hg_file = hg_file, vid_dir = vid_dir,track_id=track_id,cams=["P11C06","P08C06","P09C06","P10C06","P13C06","P12C06","P11C03","P08C04","P09C03","P10C03","P13C03","P12C03"])
     
     # if True:
     #     import cv2

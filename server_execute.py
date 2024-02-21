@@ -180,7 +180,7 @@ class TrackingProcess:
         self.start_ts = self.loader.true_start_time
         
         
-        logger.info("HG start time: {}, Tracking start time: {}  ---- difference is {:.2}sec.".format(self.hg.hg_start_time,self.start_ts,self.hg.hg_start_time-self.start_ts)
+        logger.info("HG start time: {}, Tracking start time: {}  ---- difference is {:.2}sec.".format(self.hg.hg_start_time,self.start_ts,self.hg.hg_start_time-self.start_ts))
         self.hg.hg_start_time -= self.start_ts # this ensures that the correct bin will be indexed (e.g. if hg start time is 12 and video start ts is 13, a ts_trunc of 0 (e.g. video ts = 13) should index the hg time 1 second after the start so hg_start_ts needs to be -1
         
         self.logger.debug("Initialized {} loader processes.".format(len(self.loader.device_loaders)))

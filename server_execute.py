@@ -147,12 +147,22 @@ class TrackingProcess:
         
         # fill missing
         for p in range(1,41):
-            if "P{}C03_WB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C03_EB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
-                self.hg.correspondence["P{}C03_WB".format(str(p).zfill(2))] = self.hg.correspondence["P{}C03_EB".format(str(p).zfill(2))]
-                print("Fill")
-            if "P{}C04_EB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C04_WB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
-                self.hg.correspondence["P{}C04_EB".format(str(p).zfill(2))] = self.hg.correspondence["P{}C04_WB".format(str(p).zfill(2))]
-                print("Fill")
+            for c in range(1,7):
+            # if "P{}C{}_WB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C03_EB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
+            #     self.hg.correspondence["P{}C03_WB".format(str(p).zfill(2))] = self.hg.correspondence["P{}C03_EB".format(str(p).zfill(2))]
+            #     print("Fill")
+            # if "P{}C04_EB".format(str(p).zfill(2)) not in self.hg.correspondence.keys() and "P{}C04_WB".format(str(p).zfill(2)) in self.hg.correspondence.keys():
+            #     self.hg.correspondence["P{}C04_EB".format(str(p).zfill(2))] = self.hg.correspondence["P{}C04_WB".format(str(p).zfill(2))]
+            #     print("Fill")
+            
+                sideA = "P{}C{}_EB".format(str(p).zfill(2),str(c).zfill(2))
+                sideB = "P{}C{}_WB".format(str(p).zfill(2),str(c).zfill(2))
+                if sideA in self.hg.correspondence.keys() and sideB not in self.hg.correspondence.keys():
+                    self.hg.correspondence[sideB] = self.hg.correspondence[sideA].copy()
+                    logger.info("Using {} correspndence for {} as none exists.".format(sideA,sideB))
+                elif sideB in self.hg.correspondence.keys() and sideA not in self.hg.correspondence.keys():
+                    self.hg.correspondence[sideA] = self.hg.correspondence[sideB].copy()
+                    logger.info("Using {} correspndence for {} as none exists.".format(sideB,sideA))
                 
         # intialize DeviceMap
         self.dmap = get_DeviceMap(params.device_map, self.hg, camera_list = include_camera_list, camera_priorities = priorities)
@@ -282,7 +292,7 @@ class TrackingProcess:
         self.run = False
         self.logger.warning("Either SIGINT or KeyboardInterrupt recieved. Initiating soft shutdown")
 
-        self.checkpoint()
+        #self.checkpoint()
         
         # clean up subprocesses
         del self.dbank,

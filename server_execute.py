@@ -145,6 +145,23 @@ class TrackingProcess:
         self.hg = I24_RCS(hg_file,downsample = 2)
         
         
+        # TODO trim include_camera_list
+        if True:
+            removals = []
+            for camera in include_camera_list:
+                hit = False
+                for key in list(self.hg.correspondence.keys()):
+                    if camera.upper() in key.upper():
+                       hit = True
+                       break
+                if not hit:
+                    removals.append(camera)
+                    logger.warning("Camera {} specified in cams input to Tracking, but no camera correspondence exists in homography object.".format(camera))
+            for removal in removals:
+                include_camera_list.remove(removal)
+                    
+        
+        
         # fill missing
         for p in range(1,41):
             for c in range(1,7):
@@ -163,6 +180,9 @@ class TrackingProcess:
                 elif sideB in self.hg.correspondence.keys() and sideA not in self.hg.correspondence.keys():
                     self.hg.correspondence[sideA] = self.hg.correspondence[sideB].copy()
                     logger.info("Using {} correspndence for {} as none exists.".format(sideB,sideA))
+          
+       
+                
                 
         # intialize DeviceMap
         self.dmap = get_DeviceMap(params.device_map, self.hg, camera_list = include_camera_list, camera_priorities = priorities)

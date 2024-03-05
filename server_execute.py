@@ -545,8 +545,8 @@ class TrackingProcess:
                         self.logger.info("Tracking Status Log",extra = metrics)
                         self.logger.info("Time Utilization: {}".format(self.tm),extra = self.tm.bins())
                         
-                    if self.params.checkpoint and frames_processed % 500 == 0:
-                        self.checkpoint()
+                    # if self.params.checkpoint and frames_processed % 500 == 0:
+                    #     self.checkpoint()
                
                     if len(self.tstate) > self.params.kill_count:
                         info = {"active objects":len(self.tstate)}
@@ -590,7 +590,7 @@ class TrackingProcess:
             #     shutil.copytree(os.environ["USER_CONFIG_DIRECTORY"],cache_dir)    
             #     logger.debug("Cached run settings in {}".format(cache_dir))
             
-            self.checkpoint()
+            # self.checkpoint()
             return fps
         else:
             self.logger.debug("No cameras assigned, shutting down.")

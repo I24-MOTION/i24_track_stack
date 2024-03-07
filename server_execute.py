@@ -130,7 +130,6 @@ class TrackingProcess:
             self.run = False
             return 
         
-        priorities = [ret[key].priority for key in include_camera_list]
         
         # get input video directory. If  not specified in arg1, get it from execute.config
         if len(vid_dir) > 0:
@@ -160,7 +159,7 @@ class TrackingProcess:
             for removal in removals:
                 include_camera_list.remove(removal)
                     
-        
+        priorities = [ret[key].priority for key in include_camera_list]
         
         # fill missing
         for p in range(1,41):

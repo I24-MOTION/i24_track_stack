@@ -64,6 +64,8 @@ class WriteWrapper():
     def __len__(self):
         return self.dbw.collection.count_documents({})
     
+    def __del__(self):
+        del self.dbw
     
     @catch_critical()
     def insert(self,trajectories,time_offset = 0):
@@ -181,6 +183,7 @@ class WriteWrapperConf():
     @catch_critical()
     def __len__(self):
         return self.dbw.collection.count_documents({})
+    
     
     def insert(self,trajectories,cause_of_death = None,time_offset = 0):
         """

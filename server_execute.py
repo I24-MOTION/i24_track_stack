@@ -598,7 +598,7 @@ class TrackingProcess:
             #checkpoint(target_time,tstate,collection_overwrite)
             self.logger.info("Finished tracking over input time range. Shutting down.")
             
-            if False: # Flush tracker objects
+            if True: # Flush tracker objects
                 residual_objects,COD = self.tracker.flush(self.tstate)
                 self.dbw.insert(residual_objects,cause_of_death = COD,time_offset = self.start_ts)
                 self.logger.info("Flushed all active objects to database",extra = metrics)
@@ -611,6 +611,11 @@ class TrackingProcess:
             #     logger.debug("Cached run settings in {}".format(cache_dir))
             
             # self.checkpoint()
+            
+            # delete database writer
+            del self.dbw
+            self.logger.info("Deleted database writer. ")
+            
             return fps
         else:
             self.logger.debug("No cameras assigned, shutting down.")

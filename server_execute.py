@@ -185,6 +185,9 @@ class TrackingProcess:
                 
                 
         # intialize DeviceMap
+        logger.info("Camera list given to DeviceMap: {}".format(include_camera_list_camera_list))
+        logger.info.("Correspondence names in hg: {}".format(self.hg.correspndence.keys()))
+        
         self.dmap = get_DeviceMap(params.device_map, self.hg, camera_list = include_camera_list, camera_priorities = priorities)
         dmap_devices = list(set(self.dmap.cam_devices))
         dmap_devices.sort()

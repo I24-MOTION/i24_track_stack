@@ -478,6 +478,10 @@ class TrackingProcess:
                                 confs = confs[keep]
                                 classes = classes[keep]
                                 detection_times = detection_times[keep]
+                                
+                                if keep.ndim ==0: # if we don't do this we get an error for trying to iterate over a 0-d tensor
+                                    keep = torch.empty(0)
+                                    
                                 detection_cam_names = [detection_cam_names[_] for _ in keep]
                               
                             # filter out any detections with a bad timestamp 
@@ -487,6 +491,9 @@ class TrackingProcess:
                                 confs = confs[keep]
                                 classes = classes[keep]
                                 detection_times = detection_times[keep]
+                                
+                                if keep.ndim ==0: # if we don't do this we get an error for trying to iterate over a 0-d tensor
+                                    keep = torch.empty(0)
                                 detection_cam_names = [detection_cam_names[_] for _ in keep]
                                 
                             if len(detections) == 1:
@@ -588,8 +595,13 @@ class TrackingProcess:
             except Exception as e:
                 
                 logger.warning("{} thrown. Checkpointing..".format(e))
+                logger.info("Checkpointing has been disabled.")
+                #self.checkpoint()
                 
-                self.checkpoint()
+                # delete database writer
+                del self.dbw
+                self.logger.info("Deleted database writer.")
+                
                 raise e
                 
                 

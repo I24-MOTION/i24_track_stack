@@ -479,7 +479,7 @@ class TrackingProcess:
                                 classes = classes[keep]
                                 detection_times = detection_times[keep]
                                 
-                                if keep.ndim ==0: # if we don't do this we get an error for trying to iterate over a 0-d tensor
+                                if type(keep) == torch.Tensor and keep.ndim ==0: # if we don't do this we get an error for trying to iterate over a 0-d tensor
                                     keep = torch.empty(0)
                                     
                                 detection_cam_names = [detection_cam_names[_] for _ in keep]
@@ -492,7 +492,7 @@ class TrackingProcess:
                                 classes = classes[keep]
                                 detection_times = detection_times[keep]
                                 
-                                if keep.ndim ==0: # if we don't do this we get an error for trying to iterate over a 0-d tensor
+                                if type(keep) == torch.Tensor and keep.ndim ==0: # if we don't do this we get an error for trying to iterate over a 0-d tensor
                                     keep = torch.empty(0)
                                 detection_cam_names = [detection_cam_names[_] for _ in keep]
                                 

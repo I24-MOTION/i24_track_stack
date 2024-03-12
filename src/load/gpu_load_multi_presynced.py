@@ -152,7 +152,7 @@ class MCLoader():
             for dev_idx,this_dev_loaders in enumerate(self.device_loaders):
                 for l_idx,loader in enumerate(this_dev_loaders):
                     
-                    if loader.item[1] >self.target_time + tolerance: # this frame is too far ahead, do not increment
+                    if loader.item[1] >self.target_time + tolerance:# or torch.rand(1).item() > 0.99:  # this frame is too far ahead, do not increment
                         frame = torch.zeros(3,1080,1920,device= torch.device("cuda:{}".format(dev_idx)))
                         ts = -np.inf
                         logger.warning("Loader for sequence {} is too far ahead (target time: {},    next frame timestamp: {}) and did not increment frames. Possible dropped packet.".format(self.device_loader_cam_names[dev_idx][l_idx],self.target_time,loader.item[1]))

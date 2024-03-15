@@ -81,13 +81,13 @@ class HungarianIOUAssociator(Associator):
        
        if len(second) == 0:
             return torch.empty(0)
-       elif len(second) == 1:
-           second = second.view(1,6)
+       elif len(second) == 1 or second.ndim == 1:
+           second = second.view(1,-1)
            
        if len(first) == 0:   
            return torch.zeros(len(second))-1
-       elif len(first) == 1:
-           first = first.view(1,6)
+       elif len(first) == 1 or first.ndim == 1:
+           first = first.view(1,-1)
 
         
        # print("Priors:")

@@ -496,14 +496,14 @@ class TrackingProcess:
                                     keep = torch.empty(0)
                                 detection_cam_names = [detection_cam_names[_] for _ in keep]
                                 
-                            if len(detections) == 1:
-                                detections = detections.view(-1,detections.shape[-1])
+                            if len(detections) == 1 or detections.ndim == 1:
+                                detections = detections.view(1,detections.shape[-1])
                             
                             # Association
                             self.tm.split("Associate",SYNC = True)
                             if pipeline_idx == 0:
-                                detections_orig = detections.clone()
-                                if True and len(detections) > 0:
+                                #detections_orig = detections.clone()
+                                if True and len(detections) > 1:
                                     # do nms across all device batches to remove dups
                                     #space_new = hg.state_to_space(detections)
                                     keep = state_nms(detections,confs)

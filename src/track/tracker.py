@@ -370,7 +370,8 @@ class SmartTracker(BaseTracker):
                     assigned_ids,
                     tstate,
                     hg = None,
-                    measurement_idx = 0):
+                    measurement_idx = 0,
+                    l = None):
         """
         Updates KF representation of objects where assigned_id is not -1 (unassigned)
         Adds other objects as new detections
@@ -390,64 +391,72 @@ class SmartTracker(BaseTracker):
         if len(assigned_ids) > 0:
             update_idxs = torch.nonzero(assigned_ids + 1).squeeze(1) 
             
-            if len(update_idxs) > 0:
-                update_ids = assigned_ids[update_idxs].tolist()
-                update_times = detection_times[update_idxs]
-                
-                tstate_ids = tstate()[0]
-                for id in update_ids:
-                    assert (id in tstate_ids), "{}".format(id)
+            try:
+                if len(update_idxs) > 0:
+                    update_ids = assigned_ids[update_idxs].tolist()
+                    update_times = detection_times[update_idxs]
                     
-                
-
-                # TODO this may give an issue when some but not all objects need to be rolled forward
-                # roll existing objects forward to the detection times
-                dts = tstate.get_dt(update_times,idxs = update_ids)
-                tstate.predict(dt = dts)
-            
-            
-                # update assigned detections
-                update_detections = detections[update_idxs,:]
-                update_classes = classes[update_idxs]
-                update_confs = confs[update_idxs]
-                
-                if False:
-                    lifespans = tstate.get_lifespans()
-                    update_lifespans = torch.tensor([lifespans[id] for id in update_ids])
-                    update_detections = self.de_overlap(update_detections,update_lifespans, hg)
-                
-                tstate.update(update_detections[:,:5],update_ids,update_classes,update_confs, measurement_idx = measurement_idx,high_confidence_threshold = self.sigma_high)
-            
-            # collect unassigned detections
-            new_idxs = [i for i in range(len(assigned_ids))]
-            for i in update_idxs:
-                new_idxs.remove(i)
-              
-            # if initializations is not None:
-            #     if len(initializations) > 0:
-            #         #stack initializations as tensor
-            #         new_detections = torch.stack( [torch.tensor([obj["x"],obj["y"],obj["l"],obj["w"],obj["h"]]) for obj in initializations])
-            #         new_classes    = torch.tensor( [hg.hg1.class_dict[obj["class"]]                                  for obj in initializations])
-            #         new_confs      = torch.ones ( len(initializations))
-            #         new_times      = torch.tensor( [obj["timestamp"]                                             for obj in initializations])
+                    tstate_ids = tstate()[0]
+                    for id in update_ids:
+                        assert (id in tstate_ids), "{}".format(id)
+                        
                     
-            #         # create direction tensor based on location
-            #         directions = torch.where(new_detections[:,1] > 60, torch.zeros(new_confs.shape)-1,torch.ones(new_confs.shape))
-            #         tstate.add(new_detections,directions,new_times,new_classes,new_confs,init_speed = True)
+    
+                    # TODO this may give an issue when some but not all objects need to be rolled forward
+                    # roll existing objects forward to the detection times
+                    dts = tstate.get_dt(update_times,idxs = update_ids)
+                    tstate.predict(dt = dts)
                 
-            # add new detections as new objects
-            if len(new_idxs) > 0:
-                new_idxs = torch.tensor(new_idxs)
-                new_detections = detections[new_idxs,:]
-                new_classes = classes[new_idxs]
-                new_confs = confs[new_idxs]
-                new_times = detection_times[new_idxs]
                 
-                # create direction tensor based on location
-                #directions = torch.where(new_detections[:,1] > 60, torch.zeros(new_confs.shape)-1,torch.ones(new_confs.shape))
-                directions = new_detections[:,5]
-                tstate.add(new_detections[:,:5],directions,new_times,new_classes,new_confs,init_speed = True)
+                    # update assigned detections
+                    update_detections = detections[update_idxs,:]
+                    update_classes = classes[update_idxs]
+                    update_confs = confs[update_idxs]
+                    
+                    if False:
+                        lifespans = tstate.get_lifespans()
+                        update_lifespans = torch.tensor([lifespans[id] for id in update_ids])
+                        update_detections = self.de_overlap(update_detections,update_lifespans, hg)
+                    
+                    tstate.update(update_detections[:,:5],update_ids,update_classes,update_confs, measurement_idx = measurement_idx,high_confidence_threshold = self.sigma_high)
                 
+                # collect unassigned detections
+                new_idxs = [i for i in range(len(assigned_ids))]
+                for i in update_idxs:
+                    new_idxs.remove(i)
+                  
+                # if initializations is not None:
+                #     if len(initializations) > 0:
+                #         #stack initializations as tensor
+                #         new_detections = torch.stack( [torch.tensor([obj["x"],obj["y"],obj["l"],obj["w"],obj["h"]]) for obj in initializations])
+                #         new_classes    = torch.tensor( [hg.hg1.class_dict[obj["class"]]                                  for obj in initializations])
+                #         new_confs      = torch.ones ( len(initializations))
+                #         new_times      = torch.tensor( [obj["timestamp"]                                             for obj in initializations])
+                        
+                #         # create direction tensor based on location
+                #         directions = torch.where(new_detections[:,1] > 60, torch.zeros(new_confs.shape)-1,torch.ones(new_confs.shape))
+                #         tstate.add(new_detections,directions,new_times,new_classes,new_confs,init_speed = True)
+                    
+                # add new detections as new objects
+                if len(new_idxs) > 0:
+                    new_idxs = torch.tensor(new_idxs)
+                    new_detections = detections[new_idxs,:]
+                    new_classes = classes[new_idxs]
+                    new_confs = confs[new_idxs]
+                    new_times = detection_times[new_idxs]
+                    
+                    # create direction tensor based on location
+                    #directions = torch.where(new_detections[:,1] > 60, torch.zeros(new_confs.shape)-1,torch.ones(new_confs.shape))
+                    directions = new_detections[:,5]
+                    tstate.add(new_detections[:,:5],directions,new_times,new_classes,new_confs,init_speed = True)
+                
+            except IndexError as e:
+                if l is not None:
+                    l.warning("Caught error: {}".format(e))
+                    l.info("detections shape: {}".format(detections.shape))
+                    l.info("detection_times shape: {}".format(detections.shape))
+                    l.info("assigned_ids: {}".format(assigned_ids))
+                    l.info("update_idxs: {}".format(update_idxs))
         # if no detections, increment fsld in all tracked objects
         else:
             tstate.update(None,[],None,None)

@@ -496,6 +496,8 @@ class TrackingProcess:
                                     keep = torch.empty(0)
                                 detection_cam_names = [detection_cam_names[_] for _ in keep]
                                 
+                           
+                            
                             if len(detections) == 1 or detections.ndim == 1:
                                 detections = detections.view(1,detections.shape[-1])
                             
@@ -517,7 +519,7 @@ class TrackingProcess:
                     
                             self.tm.split("Postprocess")
                             terminated_objects,cause_of_death = self.tracker.postprocess(
-                                detections, detection_times, classes, confs, associations, self.tstate, hg = self.hg,measurement_idx =0)
+                                detections, detection_times, classes, confs, associations, self.tstate, hg = self.hg,measurement_idx =0,l = self.logger)
                             term_objects += len(terminated_objects)
                 
                             self.tm.split("Write DB")

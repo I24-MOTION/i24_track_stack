@@ -169,6 +169,12 @@ class DeviceMap():
                     miny = torch.min(pts_road[:,1])
                     maxy = torch.max(pts_road[:,1])
                     
+                    
+                    if direction == "EB" and cam[0:3] in ["P01","P02","P03","P04","P05","P06","P07"]:
+                        logger.warning("Overwrote camera extents for {} in _parse_cameras. Be sure to supress this once you have real homographies for this camera.".format(corr))
+                        miny = 2
+                        maxy = 80
+                    
                     self.cam_extents[corr] = torch.tensor([minx,maxx,miny,maxy]) 
         
         hg.downsample = 2

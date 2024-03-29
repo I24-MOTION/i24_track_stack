@@ -585,20 +585,22 @@ class TrackingProcess:
                         self.logger.critical("Number of active objects {} has exceeded kill count {}. Raising sigusr handler".format(len(self.tstate),self.params.kill_count),extra = info)
                         
                         # this is the old handling method
-                        #self.sigusr_handler(None,None)
-                        #self.logger.debug("After sigusr in kill count block. This code probably shouldn't be reached")
+                        self.sigusr_handler(None,None)
+                        self.logger.debug("After sigusr in kill count block. This code probably shouldn't be reached")
                 
-                        self.logger.warning("sigusr handler temporarily overwritten. Flushing all active objects and advancing all loaders by 30 frames before resuming")
-                        residual_objects,COD = self.tracker.flush(self.tstate)
-                        self.dbw.insert(residual_objects,cause_of_death = COD,time_offset = self.start_ts)
-                        self.logger.info("Flushed all active objects to database")
+                        # this is another handling method
+                        if False:
+                            self.logger.warning("sigusr handler temporarily overwritten. Flushing all active objects and advancing all loaders by 30 frames before resuming")
+                            residual_objects,COD = self.tracker.flush(self.tstate)
+                            self.dbw.insert(residual_objects,cause_of_death = COD,time_offset = self.start_ts)
+                            self.logger.info("Flushed all active objects to database")
                         
-                        mint,maxt = min(timestamps),max(timestamps)
-                        self.logger.info("Old min and max timestamp: {},{}".format(mint,maxt))
-                        for _ in range(30):
-                            _,timestamps  = self.loader.get_frames()
-                        mint,maxt = min(timestamps),max(timestamps)
-                        self.logger.info("New min and max timestamp: {},{}".format(mint,maxt))
+                            mint,maxt = min(timestamps),max(timestamps)
+                            self.logger.info("Old min and max timestamp: {},{}".format(mint,maxt))
+                            for _ in range(30):
+                                _,timestamps  = self.loader.get_frames()
+                            mint,maxt = min(timestamps),max(timestamps)
+                            self.logger.info("New min and max timestamp: {},{}".format(mint,maxt))
                             
                         
                 

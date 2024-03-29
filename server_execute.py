@@ -141,7 +141,7 @@ class TrackingProcess:
             self.collection_overwrite = track_id
         
         
-        self.hg = I24_RCS(hg_file,downsample = 2)
+        self.hg = I24_RCS(hg_file,downsample = 2,default = "reference")
         
         
         # TODO trim include_camera_list

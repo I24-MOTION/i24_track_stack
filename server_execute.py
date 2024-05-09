@@ -34,8 +34,8 @@ from i24_configparse               import parse_cfg,parse_delimited
 from i24_rcs                       import I24_RCS
 
 
-def __process_entry__(cams=[], hg_file = '', vid_dir='', ing_id='', track_id='', end_time=0,start_time=0):
-    p = TrackingProcess(cams = cams,hg_file = hg_file, vid_dir = vid_dir, ing_id = ing_id, track_id = track_id,end_time=end_time,start_time=start_time)
+def __process_entry__(cams=[], hg_file = '', vid_dir='', ing_id='', track_id='', end_time=0,start_time=0, hg_mode = ''):
+    p = TrackingProcess(cams = cams,hg_file = hg_file, vid_dir = vid_dir, ing_id = ing_id, track_id = track_id,end_time=end_time,start_time=start_time,hg_mode = hg_mode)
     signal.signal(signal.SIGINT, p.sigint_handler)
     signal.signal(signal.SIGUSR1, p.sigusr_handler)
     p.main()
@@ -60,7 +60,8 @@ class TrackingProcess:
                  ing_id='',
                  track_id='', 
                  end_time=0, 
-                 start_time=0 ):
+                 start_time=0,
+                 hg_mode = "dynamic"):
         """
         Set up persistent process variables here
         """
@@ -141,7 +142,7 @@ class TrackingProcess:
             self.collection_overwrite = track_id
         
         
-        self.hg = I24_RCS(hg_file,downsample = 2)#default = "reference")
+        self.hg = I24_RCS(hg_file,downsample = 2,default = hg_mode)
         
         
         # TODO trim include_camera_list
@@ -663,6 +664,7 @@ if __name__ == "__main__":
     hg_file  = "/home/worklab/Documents/temp_hg_files_for_dev/hg_batch6_test.cpkl"
     hg_file = "/home/worklab/Documents/debug_batch_2024_4/hg_videonode1.cpkl"
     ca = ["P01C01","P01C02","P01C03","P01C04","P01C05","P01C06","P02C01","P02C02","P02C03","P02C04","P02C05","P02C06","P03C01","P03C02","P03C03","P03C04","P03C05","P03C06","P04C01","P04C02","P04C03","P04C04","P04C05","P04C06"]
+    hg_mode = "dynamic"
     
     if socket.gethostname() == "auxprocess1" or socket.gethostname() == "devvideo1":
         #track_id = "633c5e8bfc34583315cd6bed"
@@ -672,8 +674,8 @@ if __name__ == "__main__":
         vid_dir = "/data/video/current/{}".format(track_id)
         track_id = "650210b0069d4dc9ee0877ce" # temp to not overwrite data
         cams=["P11C06","P08C06","P09C06","P10C06","P13C06","P12C06","P11C03","P08C04","P09C03","P10C03","P13C03","P12C03"]
-        
-    __process_entry__(hg_file = hg_file, vid_dir = vid_dir,track_id=track_id,cams=ca, start_time =1668429310)
+
+    __process_entry__(hg_file = hg_file, vid_dir = vid_dir,track_id=track_id,cams=ca, start_time =1668429310,hg_mode = hg_mode)
     
     # if True:
     #     import cv2

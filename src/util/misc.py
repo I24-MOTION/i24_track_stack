@@ -220,7 +220,7 @@ def plot_scene(tstate, frames, ts, gpu_cam_names, hg, colors, mask=None, extents
                 fr.copy(), boxes, name=name, labels=None,thickness = 3, color = color_slice)
 
         # plot original detections
-        if detections is not None:
+        if False and detections is not None:
             try:
                 xmin, xmax, ymin,ymax = extents[cam_names[f_idx]]
                 keep_det= torch.mul(torch.where(detections[:, 0] > xmin - PLOT_TOLERANCE, 1, 0), torch.where(
@@ -248,7 +248,7 @@ def plot_scene(tstate, frames, ts, gpu_cam_names, hg, colors, mask=None, extents
 
         # plot priors
         # TODO - fix for both direction plotting
-        if  priors is not None and len(priors) > 0:
+        if  True and priors is not None and len(priors) > 0:
             keep_pr = torch.mul(torch.where(priors[:, 0] > xmin - PLOT_TOLERANCE, 1, 0), torch.where(
                 priors[:, 0] < xmax + PLOT_TOLERANCE, 1, 0)).nonzero().squeeze(1)
             priors_selected = priors[keep_pr,:]
@@ -284,9 +284,9 @@ def plot_scene(tstate, frames, ts, gpu_cam_names, hg, colors, mask=None, extents
     new_size = (int(cat_im.shape[1]//trunc), int(cat_im.shape[0]//trunc))
     cat_im = cv2.resize(cat_im, new_size) / 255.0
 
-    if False:
+    if True:
         try:
-            cv2.imwrite("/home/derek/Desktop/temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
+            cv2.imwrite("/home/worklab/Desktop/temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
         except:
             cv2.imwrite("./temp_frames/{}.png".format(str(fr_num).zfill(4)),cat_im*255)
     # plot

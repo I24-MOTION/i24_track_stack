@@ -407,8 +407,8 @@ class TrackingProcess:
         
                             if self.max_ts < -20:
                                 self.max_ts += 0.1
-                                logger.warning("Max ts is -inf, which likely means no frames are available. Resetting max_ts to 0.1s past previous max ({})s and loading next frame".format(self.max_ts))
-                                continue
+                                logger.warning("Max ts is -inf, which likely means no frames are available. This is taken to mean that all loaders have run out of input. Shutting down..".format(self.max_ts))
+                                break
                             #print(frames_processed,timestamps[0],target_time) # now we expect almost an exactly 30 fps framerate and exactly 30 fps target framerate
                             
                             if frames is None:
@@ -636,9 +636,10 @@ class TrackingProcess:
             
             if True: # Flush tracker objects
                 residual_objects,COD = self.tracker.flush(self.tstate)
-                self.dbw.insert(residual_objects,cause_of_death = COD,time_offset = self.start_ts)
-                self.logger.info("Flushed all active objects to database",extra = metrics)
-    
+                if self.params.write_db:
+                    self.dbw.insert(residual_objects,cause_of_death = COD,time_offset = self.start_ts)
+                    self.logger.info("Flushed all active objects to database",extra = metrics)
+        
             # if collection_overwrite is not None:
             #     # cache settings in new folder
             #     cache_dir = "./data/config_cache/{}".format(collection_overwrite)
@@ -664,7 +665,7 @@ if __name__ == "__main__":
     hg_file  = "/home/worklab/Documents/temp_hg_files_for_dev/hg_batch6_test.cpkl"
     hg_file = "/home/worklab/Documents/debug_batch_2024_4/hg_videonode1.cpkl"
     ca = ["P01C01","P01C02","P01C03","P01C04","P01C05","P01C06","P02C01","P02C02","P02C03","P02C04","P02C05","P02C06","P03C01","P03C02","P03C03","P03C04","P03C05","P03C06","P04C01","P04C02","P04C03","P04C04","P04C05","P04C06"]
-    hg_mode = "dynamic"
+    hg_mode = "reference"
     
     if socket.gethostname() == "auxprocess1" or socket.gethostname() == "devvideo1":
         #track_id = "633c5e8bfc34583315cd6bed"
@@ -675,7 +676,7 @@ if __name__ == "__main__":
         track_id = "650210b0069d4dc9ee0877ce" # temp to not overwrite data
         cams=["P11C06","P08C06","P09C06","P10C06","P13C06","P12C06","P11C03","P08C04","P09C03","P10C03","P13C03","P12C03"]
 
-    __process_entry__(hg_file = hg_file, vid_dir = vid_dir,track_id=track_id,cams=ca, start_time =1668429310,hg_mode = hg_mode)
+    __process_entry__(hg_file = hg_file, vid_dir = vid_dir,track_id=track_id,cams=ca, start_time =1668429310, end_time = 1668429330,hg_mode = hg_mode)
     
     # if True:
     #     import cv2

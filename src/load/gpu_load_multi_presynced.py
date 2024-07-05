@@ -152,12 +152,16 @@ class MCLoader():
             for dev_idx,this_dev_loaders in enumerate(self.device_loaders):
                 for l_idx,loader in enumerate(this_dev_loaders):
                     
-                    if loader.item[1] >self.target_time + tolerance:# or torch.rand(1).item() > 0.99:  # this frame is too far ahead, do not increment
+                    if loader.item[1] is None:
+                        frame = torch.zeros(3,1080,1920,device= torch.device("cuda:{}".format(dev_idx)))
+                        ts = -np.inf
+                        
+                    elif loader.item[1] >self.target_time + tolerance:# or torch.rand(1).item() > 0.99:  # this frame is too far ahead, do not increment
                         frame = torch.zeros(3,1080,1920,device= torch.device("cuda:{}".format(dev_idx)))
                         ts = -np.inf
                         logger.warning("Loader for sequence {} is too far ahead (target time: {},    next frame timestamp: {}) and did not increment frames. Possible dropped packet.".format(self.device_loader_cam_names[dev_idx][l_idx],self.target_time,loader.item[1]))
                         
-                    else:
+                    else: 
                         ts = -1
                         while ts < self.target_time - tolerance:
                             # advancement of at least one frame
@@ -248,7 +252,9 @@ class GPUBackendFrameGetter:
         self.worker = ctx.Process(target=load_queue_continuous_vpf, args=(self.queue,directory,device,buffer_size,resize,start_time,Hz,hgPath),daemon = True)
         self.worker.start()   
         
-        self.directory = directory        
+        self.directory = directory      
+        
+        self.finished = False
 
     def __len__(self):
         """
@@ -276,18 +282,21 @@ class GPUBackendFrameGetter:
 
         """
         
-        
-        try:
-            frame = self.queue.get(timeout = timeout)
-        
-            ts = frame[1] 
-            im = frame[0]
-        except Exception as e:
-            logger.error("Got timeout exception {} loading frames from {}. None frame will be returned and tracking will shut down".format(e,self.directory))
-            im = None #torch.empty([6,1080,1920])
-            ts = None
+        if self.finished:
+            self.item = None, None
+        else:
+            try:
+                frame = self.queue.get(timeout = timeout)
             
-        self.item = (im,ts)
+                ts = frame[1] 
+                im = frame[0]
+            except Exception as e:
+                logger.error("Got timeout exception {} loading frames from {}. From now on, empty frames will be returned.".format(e,self.directory))
+                im = None #torch.empty([6,1080,1920])
+                ts = None
+                self.finished = True
+                
+            self.item = (im,ts)
         #return im,ts
         
         # if False: #TODO - implement shutdown
@@ -376,6 +385,7 @@ def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,H
     
     returned_counter = 0
     while True:
+        
         
         #file = os.path.join(directory,file)
         
@@ -470,6 +480,10 @@ def load_queue_continuous_vpf(q,directory,device,buffer_size,resize,start_time,H
                 
                 returned_counter += 1
                 q.put(frame)
+                
+                # if camera == "P03C05":
+                #     break # WARNING - this will not end well for you if you leave this line in!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                
             
         
         logger.debug("Finished handling frames from {}".format(file))
